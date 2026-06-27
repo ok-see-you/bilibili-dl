@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>B站下载器</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 340px;
+      font-family: 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: #1a1a1a;
+      background: linear-gradient(135deg, #f0f4ff 0%, #fdf2f5 50%, #f8f6ff 100%);
+    }
+
+    /* ── Header ── */
+    .header {
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: #1a1a1a;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .header svg { flex-shrink: 0; }
+    .header-title { font-size: 15px; font-weight: 600; letter-spacing: 0.3px; }
+
+    /* ── Content ── */
+    .content { padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Video title ── */
+    .video-title {
+      font-size: 12px;
+      color: #444;
+      line-height: 1.4;
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 12px;
+      padding: 8px 10px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    /* ── Section ── */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+
+    /* ── Quality selector ── */
+    select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #1a1a1a;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      cursor: pointer;
+      text-align: center;
+      text-align-last: center;
+      appearance: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      transition: all 0.2s ease;
+    }
+    select:focus { outline: none; border-color: rgba(0,0,0,0.15); box-shadow: 0 0 0 3px rgba(0,0,0,0.04); }
+
+    /* ── Buttons ── */
+    .btn-group { display: flex; flex-direction: column; gap: 6px; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 9px;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #1a1a1a;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+    .btn:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+    .btn:not(:disabled):active { transform: translateY(0); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+    .btn-video { }
+    .btn-audio { }
+
+    /* ── Downloading progress bar ── */
+    .btn.downloading {
+      position: relative;
+      overflow: hidden;
+      cursor: wait;
+      color: transparent;
+    }
+    .btn.downloading::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      background: rgba(240, 160, 180, 0.35);
+      border-radius: 12px;
+      animation: progressFill 3s ease-out forwards;
+    }
+    @keyframes progressFill {
+      0%   { width: 2%; }
+      30%  { width: 25%; }
+      50%  { width: 45%; }
+      70%  { width: 65%; }
+      85%  { width: 82%; }
+      100% { width: 95%; }
+    }
+    .btn.downloading::after {
+      content: attr(data-pct);
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      color: #1a1a1a;
+      font-weight: 600;
+      font-size: 13px;
+      z-index: 1;
+    }
+
+    /* ── Subtitle list ── */
+    .sub-list { display: flex; flex-direction: column; gap: 5px; }
+    .sub-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 12px;
+      gap: 8px;
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+    }
+    .sub-item .sub-name { flex: 1; font-size: 12px; color: #333; }
+    .ai-badge {
+      font-size: 10px;
+      background: rgba(0,0,0,0.04);
+      color: #666;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 4px;
+      padding: 1px 5px;
+      white-space: nowrap;
+    }
+    .btn-sub-dl {
+      padding: 4px 10px;
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: #1a1a1a;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      transition: all 0.15s ease;
+    }
+    .btn-sub-dl:hover { background: rgba(0,0,0,0.03); transform: translateY(-1px); }
+
+    /* ── Status ── */
+    .status {
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+      padding: 6px 0;
+    }
+    .status.error { color: #c0392b; }
+    .status.success { color: #27ae60; }
+
+    /* ── Author link ── */
+    .author-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1a1a1a;
+      text-decoration: none;
+      background: rgba(255,255,255,0.6);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 12px;
+      transition: all 0.2s ease;
+    }
+    .author-link:hover {
+      color: #1a1a1a;
+      background: rgba(255,255,255,0.85);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .author-cat {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    /* ── Loading ── */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 0;
+      gap: 10px;
+      color: #aaa;
+      font-size: 12px;
+    }
+    .spinner {
+      width: 24px; height: 24px;
+      border: 3px solid rgba(0,0,0,0.06);
+      border-top-color: #888;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Not on video page ── */
+    .not-video {
+      padding: 28px 14px;
+      text-align: center;
+      color: #999;
+      line-height: 1.7;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: #666;
+      background: rgba(255,255,255,0.5);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 12px;
+      padding: 7px 10px;
+      line-height: 1.5;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+    }
+    .hint strong { color: #333; }
+
+    /* divider */
+    hr { border: none; border-top: 1px solid rgba(0,0,0,0.06); }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <svg width="20" height="20" viewBox="0 0 100 100" fill="none">
+    <rect width="100" height="100" rx="20" fill="rgba(0,0,0,0.06)"/>
+    <path d="M30 35 L30 70 L70 52.5 Z" fill="#333"/>
+  </svg>
+  <span class="header-title">B站下载器</span>
+</div>
+
+<div id="app">
+  <div class="loading">
+    <div class="spinner"></div>
+    <span>读取视频信息…</span>
+  </div>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>
